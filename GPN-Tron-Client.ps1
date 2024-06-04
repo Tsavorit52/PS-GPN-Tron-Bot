@@ -1,5 +1,5 @@
 ############Settings############
-$routerAddress = "0.0.0.0" #ip
+$serverAddress = "0.0.0.0" #ip
 $port = "4000"
 $Global:User = 'Username'
 $Global:PW = ('Password')
@@ -266,7 +266,7 @@ function test-next-move($move){
 
 ############Main############
 #open tcp socket
-$tcp = New-Object System.Net.Sockets.TcpClient($routerAddress,$Port)
+$tcp = New-Object System.Net.Sockets.TcpClient($serverAddress,$Port)
 $tcpstream = $tcp.GetStream()
 $reader = New-Object System.IO.StreamReader($tcpStream)
 $writer = New-Object System.IO.StreamWriter($tcpStream)
