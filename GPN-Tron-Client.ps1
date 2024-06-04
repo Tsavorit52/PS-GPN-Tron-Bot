@@ -5,26 +5,82 @@ $Global:User = 'Username'
 $Global:PW = ('Password')
 $Global:muteChat = $true
 $Global:renderPlayfiled = $false
+$Global:strategy = 'random' #random or urdl
 
 
 ############Initialize Variables############
 [int]$global:gamesizew = 0
 [int]$global:gamesizeh = 0
 [int]$global:myplayerid = $null
-$global:players = @{} #$global:players["1"]
+$global:players = @{}
 $global:myposition = @(0,0)
 
 
 ############Functions############
+function get-next-move(){
+    Param(
+        [ValidateSet("random", "urdl")]
+        [string]$strategy
+    )
+    #Random
+    if($strategy -eq 'random'){
+
+     #get a random direction and test if it is free
+        $count = 0
+        $random = Get-Random -Minimum 0 -Maximum 3
+        do{
+            
+            if($random -eq 0){
+                $nextmove = 'up'
+            }elseif($random -eq 1){
+                $nextmove = 'down'
+            }elseif($random -eq 2){
+                $nextmove = 'left'
+            }else{
+                $nextmove = 'right'
+            }
+            $random++
+            if($random -gt 3){
+                $random = 0
+            }
+        }while((!(test-next-move -move $nextmove))-and $count -lt 4
+    }  
+
+    #urdl (always Up then Right Down, Left)
+    elseif($strategy -eq 'urdl'){
+        $nextmove = 'up'
+        
+        if(!(test-next-move -move $nextmove)){
+            $nextmove = 'right'
+        }
+
+        if(!(test-next-move -move $nextmove)){
+            $nextmove = 'down'
+        }
+
+        if(!(test-next-move -move $nextmove)){
+            $nextmove = 'left'
+        }
+    }
+
+    return $nextmove
+}
+
 
 function message-handler($packet){
     $message = $null
+
+    #this function parses the packets and return a message if required
     #messages could be packets that are sent to the server or "break" to kill the connection or "nextmessage" to listen for the next message
     
     $splitpacket = ($packet -split "\|")
     $messagetype = $splitpacket[0]
 
+    #packet types: https://github.com/freehuntx/gpn-tron/blob/master/PROTOCOL.md
+
+
     #---------error---------
+    #error types: https://github.com/freehuntx/gpn-tron/blob/master/ERRORCODES.md
     if($messagetype -eq "error"){
         write-host $splitpacket[1] -ForegroundColor Red
         $message = "break"
@@ -77,42 +133,7 @@ function message-handler($packet){
             render-gameboard -fancy
         }
         
-        #random direction
-        $count = 0
-        $random = Get-Random -Minimum 0 -Maximum 3
-        do{
-            
-            if($random -eq 0){
-                $nextmove = 'up'
-            }elseif($random -eq 1){
-                $nextmove = 'down'
-            }elseif($random -eq 2){
-                $nextmove = 'left'
-            }else{
-                $nextmove = 'right'
-            }
-            $random++
-            if($random -gt 3){
-                $random = 0
-            }
-        }while((!(test-next-move -move $nextmove))-and $count -lt 4)
-        
-        <# 
-        #always UP, then right down left 
-        #define next move
-        $nextmove = 'up'
-        
-        if(!(test-next-move -move $nextmove)){
-            $nextmove = 'right'
-        }
-
-        if(!(test-next-move -move $nextmove)){
-            $nextmove = 'down'
-        }
-
-        if(!(test-next-move -move $nextmove)){
-            $nextmove = 'left'
-        }#>
+        $nextmove = get-next-move -strategy $Global:strategy
          
         $message = ('move|'+$nextmove+[char]0x0A)
     }
@@ -170,6 +191,8 @@ function render-gameboard{
         [switch]$fancy
     )
 
+    #this function renders the currend gameboard into the console. (Very Slow!!)
+
     for($y=0; $y -le  $global:gamesizeh-1; $y++){
         [string]$line = $null
         for($x=0; $x -le  $global:gamesizew-1; $x++){
@@ -191,7 +214,8 @@ function render-gameboard{
 
 
 function test-next-move($move){
-    
+    #this function can test if the next move would be free
+
     $nextStepValue = -1
 
     ###todo screen boarder overflow, wrap around
@@ -241,6 +265,7 @@ function test-next-move($move){
 
 
 ############Main############
+#open tcp socket
 $tcp = New-Object System.Net.Sockets.TcpClient($routerAddress,$Port)
 $tcpstream = $tcp.GetStream()
 $reader = New-Object System.IO.StreamReader($tcpStream)
@@ -252,17 +277,14 @@ $writer.AutoFlush = $true
     #write-host "connected"
     [string]$packet = $null
 
+    #wait until the next packet is ready
     $buffertime = 0
     while(($reader.Peek() -eq -1) -and (!$tcp.Available)){
         sleep -Milliseconds 1
         $buffertime++
     }
-    
-    <#
-    if($buffertime -ge 2){
-        write-host ("Buffertime: "+$buffertime)
-    }#>
 
+    #save the buffer into a variable if the packet is finished (\n)
     :readbuffer while(($reader.Peek() -ne -1) -or ($tcp.Available)){        
         $nextchar = [char]$reader.Read()
         if($nextchar -eq [char]0x0A){
@@ -275,13 +297,18 @@ $writer.AutoFlush = $true
 
     
     #write-host ("Received Packet: "+$packet)
+    #send packet to handler
     $message = message-handler -packet $packet
+
+    #close connection if message handler send break (eg. Error or game finished)
     if(($message -eq "break") -or ($message -eq $null)){
         break connection
     }
 
+    #skip send if nothing needs to be sent
     if($message -ne 'nextmessage'){
-
+        
+        #send message to server
         write-host ("Will send message: "+$message)
 
         if ($tcp.Connected)
@@ -292,6 +319,7 @@ $writer.AutoFlush = $true
     }
 }
 
+#close connection
 $reader.Close()
 $writer.Close()
 $tcp.Close()
