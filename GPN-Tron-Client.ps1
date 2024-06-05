@@ -43,7 +43,7 @@ function get-next-move(){
             if($random -gt 3){
                 $random = 0
             }
-        }while((!(test-next-move -move $nextmove))-and $count -lt 4
+        }while((!(test-next-move -move $nextmove))-and $count -lt 4)
     }  
 
     #urdl (always Up then Right Down, Left)
