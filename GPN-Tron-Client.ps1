@@ -3,7 +3,7 @@ $serverAddress = "0.0.0.0" #ip
 $port = "4000" #port
 $Global:User = 'Username' #username
 $Global:PW = ('Password') #password
-$Global:strategy = 'random' #Strategy to choose next move (random or urdl)
+$Global:strategy = 'score' #Strategy to choose next move (random or urdl)
 $Global:muteChat = $true #mutes the chat output
 $Global:renderPlayfiled = $false #show gameboard rendered in console outputs
 $Global:showPackets = $false #sent and received packets will printed in the chat
@@ -21,7 +21,7 @@ $global:headpositions = @{} #current position of all the players heads
 ############Functions############
 function get-next-move(){
     Param(
-        [ValidateSet("random", "urdl")]
+        [ValidateSet("random", "urdl", "score")]
         [string]$strategy
     )
     #Random
@@ -67,6 +67,51 @@ function get-next-move(){
         if(!(test-next-move -move $nextmove) -and !(test-diagonal-heads -move $nextmove)){
             $nextmove = 'left'
         }
+    }
+    #by score, obstructed = 10, heads = 5, lowest gets selected 
+    elseif($strategy -eq 'score'){
+        $scores = @{}
+        
+        if(!(test-next-move -move 'up')){
+            $scores += @{'up'=10}
+        }elseif(test-diagonal-heads -move 'up'){
+            $scores += @{'up'=5}
+        }else{
+            $scores += @{'up'=0}
+        }
+
+
+        if(!(test-next-move -move 'down')){
+            $scores += @{'down'=10}
+        }elseif(test-diagonal-heads -move 'down'){
+            $scores += @{'down'=5}
+        }else{
+            $scores += @{'down'=0}
+        }
+
+        if(!(test-next-move -move 'right')){
+            $scores += @{'right'=10}
+        }elseif(test-diagonal-heads -move 'right'){
+            $scores += @{'right'=5}
+        }else{
+            $scores += @{'right'=0}
+        }
+
+        if(!(test-next-move -move 'left')){
+            $scores += @{'left'=10}
+        }elseif(test-diagonal-heads -move 'left'){
+            $scores += @{'left'=5}
+        }else{
+            $scores += @{'left'=0}
+        }
+
+        $lowest = ($scores.Values | sort)[0]
+        
+        $nextmove = ($scores.GetEnumerator() | ? { $_.Value -eq $lowest })[0].Name
+
+        #$scores | Out-String | Write-Host
+        #write-host $nextmove
+
     }
 
     return $nextmove
@@ -435,4 +480,3 @@ finally{
 
     Write-host "connection closed :("
 }
-
