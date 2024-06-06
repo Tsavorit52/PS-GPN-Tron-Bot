@@ -9,8 +9,8 @@ $Global:strategy = 'random' #random or urdl
 
 
 ############Initialize Variables############
-[int]$global:gamesizew = 0
-[int]$global:gamesizeh = 0
+[int]$global:gamesizex = 0
+[int]$global:gamesizey = 0
 [int]$global:myplayerid = $null
 $global:players = @{}
 $global:myposition = @(0,0)
@@ -93,14 +93,14 @@ function message-handler($packet){
     
     #---------game---------
     elseif($messagetype -eq "game"){
-        $global:gamesizew = [int]$splitpacket[1]
-        $global:gamesizeh = [int]$splitpacket[2]
+        $global:gamesizex = [int]$splitpacket[1]
+        $global:gamesizey = [int]$splitpacket[2]
         $global:myplayerid = [int]$splitpacket[3]
 
-        $global:gameboard =  New-Object 'object[,]' $global:gamesizew,$global:gamesizeh
+        $global:gameboard =  New-Object 'object[,]' $global:gamesizex,$global:gamesizey
 
-        for($x=0; $x -le  $global:gamesizew-1; $x++){
-            for($y=0; $y -le  $global:gamesizeh-1; $y++){
+        for($x=0; $x -le  $global:gamesizex-1; $x++){
+            for($y=0; $y -le  $global:gamesizey-1; $y++){
                 $global:gameboard[$x,$y] = -1        
             }
         }
@@ -151,8 +151,8 @@ function message-handler($packet){
         Write-Host ("Player:"+$splitpacket[1]+" died.")
 
         #remove dead player from the board and player list
-        for($x=0; $x -le  $global:gamesizew-1; $x++){
-            for($y=0; $y -le  $global:gamesizeh-1; $y++){
+        for($x=0; $x -le  $global:gamesizex-1; $x++){
+            for($y=0; $y -le  $global:gamesizey-1; $y++){
                 if($global:gameboard[$x,$y] -eq [int]$splitpacket[1]){
                     $global:gameboard[$x,$y] = -1
                 }        
@@ -193,9 +193,9 @@ function render-gameboard{
 
     #this function renders the currend gameboard into the console. (Very Slow!!)
 
-    for($y=0; $y -le  $global:gamesizeh-1; $y++){
+    for($y=0; $y -le  $global:gamesizey-1; $y++){
         [string]$line = $null
-        for($x=0; $x -le  $global:gamesizew-1; $x++){
+        for($x=0; $x -le  $global:gamesizex-1; $x++){
             if($fancy){
                 if($global:gameboard[$x,$y] -eq -1){
                     $line += '□ '
@@ -223,7 +223,7 @@ function test-next-move($move){
     #y -1
     if($move -eq 'up'){
         if(($global:myposition[1]) -eq 0){
-            $nextStepValue = $global:gameboard[$global:myposition[0],($global:gamesizeh-1)]
+            $nextStepValue = $global:gameboard[$global:myposition[0],($global:gamesizey-1)]
         }else{
             $nextStepValue = $global:gameboard[$global:myposition[0],($global:myposition[1]-1)]
         }
@@ -231,7 +231,7 @@ function test-next-move($move){
     
     #y +1
     elseif($move -eq 'down'){
-        if(($global:myposition[1]) -eq ($global:gamesizeh-1)){
+        if(($global:myposition[1]) -eq ($global:gamesizey-1)){
             $nextStepValue = $global:gameboard[$global:myposition[0],0]
         }else{
             $nextStepValue = $global:gameboard[$global:myposition[0],($global:myposition[1]+1)]
@@ -239,7 +239,7 @@ function test-next-move($move){
     }
     #x +1
     elseif($move -eq 'right'){
-        if(($global:myposition[0]) -eq ($global:gamesizew-1)){
+        if(($global:myposition[0]) -eq ($global:gamesizex-1)){
             $nextStepValue = $global:gameboard[0,$global:myposition[1]]
         }else{
             $nextStepValue = $global:gameboard[($global:myposition[0]+1),$global:myposition[1]]
@@ -249,7 +249,7 @@ function test-next-move($move){
     #x -1
     elseif($move -eq 'left'){
         if(($global:myposition[0]) -eq 0){
-            $nextStepValue = $global:gameboard[($global:gamesizew-1),$global:myposition[1]]
+            $nextStepValue = $global:gameboard[($global:gamesizex-1),$global:myposition[1]]
         }else{
             $nextStepValue = $global:gameboard[($global:myposition[0]-1),$global:myposition[1]]
         }
