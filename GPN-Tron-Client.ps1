@@ -47,22 +47,24 @@ function get-next-move(){
             }
             $random++
             $count++
-        }while((!(test-next-move -move $nextmove))-and $count -lt 5)
+            $testmove = test-next-move -move $nextmove #true = occupied
+            $testdiagonal = test-diagonal-heads -move $nextmove #true = heads in the area
+        }while((!$testmove -and !$testdiagonal) -and $count -lt 5)
     }  
 
     #urdl (always Up then Right Down, Left)
     elseif($strategy -eq 'urdl'){
         $nextmove = 'up'
         
-        if(!(test-next-move -move $nextmove)){
+        if(!(test-next-move -move $nextmove) -and !(test-diagonal-heads -move $nextmove)){
             $nextmove = 'right'
         }
 
-        if(!(test-next-move -move $nextmove)){
+        if(!(test-next-move -move $nextmove) -and !(test-diagonal-heads -move $nextmove)){
             $nextmove = 'down'
         }
 
-        if(!(test-next-move -move $nextmove)){
+        if(!(test-next-move -move $nextmove) -and !(test-diagonal-heads -move $nextmove)){
             $nextmove = 'left'
         }
     }
@@ -305,27 +307,56 @@ function test-diagonal-heads($move){
     #test for heads diagonaly to prevent them to move to the same spot a we do
 
     ##still in the making
+    #wrap around is missing!!
+
 
     #these positions need to be filled + wrap around
     $straight = @(0,0)
     $leftd = @(0,0)
     $rightd = @(0,0)
 
+     #s=y -2, l= x-1,y-1, r=x+1,y-1
+    if($move -eq 'up'){
+        $straight = @(([int]$global:myposition[0]),([int]$global:myposition[1]-2))
+        $leftd = @(([int]$global:myposition[0]-1),([int]$global:myposition[1]-1))
+        $rightd = @(([int]$global:myposition[0]+1),([int]$global:myposition[1]-1))
+    }
+    
+    #s=y +2, l= x+1,y+1, r=x-1,y+1
+    elseif($move -eq 'down'){
+        $straight = @(([int]$global:myposition[0]),([int]$global:myposition[1]+2))
+        $leftd = @(([int]$global:myposition[0]+1),([int]$global:myposition[1]+1))
+        $rightd = @(([int]$global:myposition[0]-1),([int]$global:myposition[1]+1))
+    }
+
+    #s=x +2, l= x+1,y-1, r=x+1,y+1
+    elseif($move -eq 'right'){
+        $straight = @(([int]$global:myposition[0]+2),([int]$global:myposition[1]))
+        $leftd = @(([int]$global:myposition[0]+1),([int]$global:myposition[1]-1))
+        $rightd = @(([int]$global:myposition[0]+1),([int]$global:myposition[1]+1))
+    }
+    
+    #s=x -2, l= x-1,y+1, r=x-1,y-1
+    elseif($move -eq 'left'){        
+        $straight = @(([int]$global:myposition[0]-2),([int]$global:myposition[1]))
+        $leftd = @(([int]$global:myposition[0]-1),([int]$global:myposition[1]+1))
+        $rightd = @(([int]$global:myposition[0]-1),([int]$global:myposition[1]-1))
+
+    }
+
+
     $headfound = $false
 
     foreach($key in $global:headpositions.Keys){
         if(($global:headpositions.($key)[0] -eq $straight[0]) -and ($global:headpositions.($key)[1] -eq $straight[1])){
-            write-host straight
             $headfound = $true
         }
 
         if(($global:headpositions.($key)[0] -eq $leftd[0]) -and ($global:headpositions.($key)[1] -eq $leftd[1])){
-            write-host leftd
             $headfound = $true
         }
 
         if(($global:headpositions.($key)[0] -eq $rightd[0]) -and ($global:headpositions.($key)[1] -eq $rightd[1])){
-            write-host rightd
             $headfound = $true
         }
 
