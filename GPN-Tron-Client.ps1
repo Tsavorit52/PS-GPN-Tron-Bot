@@ -1,22 +1,22 @@
 ############Settings############
 $serverAddress = "0.0.0.0" #ip
-$port = "4000"
-$Global:User = 'Username'
-$Global:PW = ('Password')
-$Global:strategy = 'urdl' #random or urdl
-$Global:muteChat = $true
-$Global:renderPlayfiled = $false
+$port = "4000" #port
+$Global:User = 'Username' #username
+$Global:PW = ('Password') #password
+$Global:strategy = 'random' #Strategy to choose next move (random or urdl)
+$Global:muteChat = $true #mutes the chat output
+$Global:renderPlayfiled = $false #show gameboard rendered in console outputs
 $Global:showPackets = $false #sent and received packets will printed in the chat
 
 
 
 ############Initialize Variables############
-[int]$global:gamesizex = 0
-[int]$global:gamesizey = 0
-[int]$global:myplayerid = $null
-$global:players = @{}
-$global:myposition = @(0,0)
-
+[int]$global:gamesizex = 0 #game board size x direction
+[int]$global:gamesizey = 0 #game board size y direction
+[int]$global:myplayerid = $null #playerid of the bot
+$global:players = @{} #list of all players
+$global:myposition = @(0,0) #current position of the bot, will be updated after every move
+$global:headpositions = @{} #current position of all the players heads
 
 ############Functions############
 function get-next-move(){
@@ -121,6 +121,16 @@ function message-handler($packet){
     }elseif($messagetype -eq 'pos'){
         $global:gameboard[$splitpacket[2],$splitpacket[3]] = $splitpacket[1]
 
+        #update list of all head positions
+        $pos = @($splitpacket[2],$splitpacket[3])
+        
+        if($global:headpositions.ContainsKey($splitpacket[1])){
+            $global:headpositions.($splitpacket[1]) = $pos
+        }else{
+            $global:headpositions += @{ $splitpacket[1] = $pos}
+        }
+
+        #update variable with my position
         if($splitpacket[1] -eq [int]$global:myplayerid){
             $global:myposition[0] = [int]$splitpacket[2]
             $global:myposition[1] = [int]$splitpacket[3]
@@ -156,6 +166,7 @@ function message-handler($packet){
             }
         }
 
+        $global:headpositions.Remove($splitpacket[1])
         $Global:players.Remove($splitpacket[1])
         $message = 'nextmessage'
     }
@@ -288,6 +299,39 @@ function test-next-move($move){
         return $false
     }
 
+}
+
+function test-diagonal-heads($move){
+    #test for heads diagonaly to prevent them to move to the same spot a we do
+
+    ##still in the making
+
+    #these positions need to be filled + wrap around
+    $straight = @(0,0)
+    $leftd = @(0,0)
+    $rightd = @(0,0)
+
+    $headfound = $false
+
+    foreach($key in $global:headpositions.Keys){
+        if(($global:headpositions.($key)[0] -eq $straight[0]) -and ($global:headpositions.($key)[1] -eq $straight[1])){
+            write-host straight
+            $headfound = $true
+        }
+
+        if(($global:headpositions.($key)[0] -eq $leftd[0]) -and ($global:headpositions.($key)[1] -eq $leftd[1])){
+            write-host leftd
+            $headfound = $true
+        }
+
+        if(($global:headpositions.($key)[0] -eq $rightd[0]) -and ($global:headpositions.($key)[1] -eq $rightd[1])){
+            write-host rightd
+            $headfound = $true
+        }
+
+    }
+
+    return $headfound
 }
 
 
