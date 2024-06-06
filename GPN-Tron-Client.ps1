@@ -3,9 +3,11 @@ $serverAddress = "0.0.0.0" #ip
 $port = "4000"
 $Global:User = 'Username'
 $Global:PW = ('Password')
+$Global:strategy = 'urdl' #random or urdl
 $Global:muteChat = $true
 $Global:renderPlayfiled = $false
-$Global:strategy = 'random' #random or urdl
+$Global:showPackets = $false #sent and received packets will printed in the chat
+
 
 
 ############Initialize Variables############
@@ -27,9 +29,9 @@ function get-next-move(){
 
      #get a random direction and test if it is free
         $count = 0
-        $random = Get-Random -Minimum 0 -Maximum 3
+        $random = Get-Random -Minimum 0 -Maximum 4
+
         do{
-            
             if($random -eq 0){
                 $nextmove = 'up'
             }elseif($random -eq 1){
@@ -39,11 +41,13 @@ function get-next-move(){
             }else{
                 $nextmove = 'right'
             }
-            $random++
-            if($random -gt 3){
-                $random = 0
+            
+            if($random -ge 3){
+                $random = -1
             }
-        }while((!(test-next-move -move $nextmove))-and $count -lt 4)
+            $random++
+            $count++
+        }while((!(test-next-move -move $nextmove))-and $count -lt 5)
     }  
 
     #urdl (always Up then Right Down, Left)
@@ -139,13 +143,6 @@ function message-handler($packet){
     }
     
 
-    #---------lose---------
-    elseif($messagetype -eq 'lose'){
-        Write-Host "Lost :("
-        Write-Host ("Total Wins:"+$splitpacket[1]+" Total Losses:"+$splitpacket[2])
-        $message = 'break'
-    }
-
     #---------die---------
     elseif($messagetype -eq 'die'){
         Write-Host ("Player:"+$splitpacket[1]+" died.")
@@ -161,6 +158,36 @@ function message-handler($packet){
 
         $Global:players.Remove($splitpacket[1])
         $message = 'nextmessage'
+    }
+
+    #---------lose---------
+    elseif($messagetype -eq 'lose'){
+        Write-Host "Lost :(" -ForegroundColor DarkRed
+        Write-Host ("Total Wins:"+$splitpacket[1]+" Total Losses:"+$splitpacket[2])
+
+        #reset variables
+        [int]$global:gamesizex = 0
+        [int]$global:gamesizey = 0
+        [int]$global:myplayerid = $null
+        $global:players = @{}
+        $global:myposition = @(0,0)
+
+        $message = 'nextmessage'
+    }
+
+    #---------win---------
+    elseif($messagetype -eq 'win'){
+        Write-Host "Won!!" -ForegroundColor Green
+        Write-Host ("Total Wins:"+$splitpacket[1]+" Total Losses:"+$splitpacket[2])
+
+        #reset variables
+        [int]$global:gamesizex = 0
+        [int]$global:gamesizey = 0
+        [int]$global:myplayerid = $null
+        $global:players = @{}
+        $global:myposition = @(0,0)
+        $message = 'nextmessage'
+
     }
 
     #---------message---------
@@ -265,63 +292,72 @@ function test-next-move($move){
 
 
 ############Main############
-#open tcp socket
-$tcp = New-Object System.Net.Sockets.TcpClient($serverAddress,$Port)
-$tcpstream = $tcp.GetStream()
-$reader = New-Object System.IO.StreamReader($tcpStream)
-$writer = New-Object System.IO.StreamWriter($tcpStream)
-$writer.AutoFlush = $true
+try{
+    #open tcp socket
+    $tcp = New-Object System.Net.Sockets.TcpClient($serverAddress,$Port)
+    $tcpstream = $tcp.GetStream()
+    $reader = New-Object System.IO.StreamReader($tcpStream)
+    $writer = New-Object System.IO.StreamWriter($tcpStream)
+    $writer.AutoFlush = $true
 
-:connection while ($tcp.Connected)
-{   
-    #write-host "connected"
-    [string]$packet = $null
+    :connection while ($tcp.Connected)
+    {   
+        #write-host "connected"
+        [string]$packet = $null
 
-    #wait until the next packet is ready
-    $buffertime = 0
-    while(($reader.Peek() -eq -1) -and (!$tcp.Available)){
-        sleep -Milliseconds 1
-        $buffertime++
-    }
-
-    #save the buffer into a variable if the packet is finished (\n)
-    :readbuffer while(($reader.Peek() -ne -1) -or ($tcp.Available)){        
-        $nextchar = [char]$reader.Read()
-        if($nextchar -eq [char]0x0A){
-         break readbuffer
-        }else{
-            $packet += $nextchar
+        #wait until the next packet is ready
+        $buffertime = 0
+        while(($reader.Peek() -eq -1) -and (!$tcp.Available)){
+            sleep -Milliseconds 1
+            $buffertime++
         }
+
+        #save the buffer into a variable if the packet is finished (\n)
+        :readbuffer while(($reader.Peek() -ne -1) -or ($tcp.Available)){        
+            $nextchar = [char]$reader.Read()
+            if($nextchar -eq [char]0x0A){
+             break readbuffer
+            }else{
+                $packet += $nextchar
+            }
     
-    }
+        }
 
-    
-    #write-host ("Received Packet: "+$packet)
-    #send packet to handler
-    $message = message-handler -packet $packet
+        if($Global:showPackets){
+            write-host ("Received Packet: "+$packet)
+        }
+        #send packet to handler
+        $message = message-handler -packet $packet
 
-    #close connection if message handler send break (eg. Error or game finished)
-    if(($message -eq "break") -or ($message -eq $null)){
-        break connection
-    }
+        #close connection if message handler send break (eg. Error or game finished)
+        if(($message -eq "break") -or ($message -eq $null)){
+            break connection
+        }
 
-    #skip send if nothing needs to be sent
-    if($message -ne 'nextmessage'){
-        
-        #send message to server
-        write-host ("Will send message: "+$message)
+        #skip send if nothing needs to be sent
+        if($message -ne 'nextmessage'){
+            
+            if($Global:showPackets){
+                #send message to server
+                write-host ("Will send message: "+$message)
+            }
 
-        if ($tcp.Connected)
-        {
-            $writer.Write($message) | Out-Null
-            $message = $null
+            if ($tcp.Connected)
+            {
+                $writer.Write($message) | Out-Null
+                $message = $null
+            }
         }
     }
+}catch{
+    Write-Host "Fatal Error" -ForegroundColor Red
+}
+finally{
+    #close connection
+    $reader.Close()
+    $writer.Close()
+    $tcp.Close()
+
+    Write-host "connection closed :("
 }
 
-#close connection
-$reader.Close()
-$writer.Close()
-$tcp.Close()
-
-Write-host "connection closed :("
